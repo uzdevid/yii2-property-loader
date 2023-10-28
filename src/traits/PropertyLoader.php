@@ -9,6 +9,7 @@ use uzdevid\property\loader\types\Key;
 use uzdevid\property\loader\types\ObjectClass;
 use uzdevid\property\loader\types\Property;
 use yii\base\Arrayable;
+use yii\base\InvalidArgumentException;
 
 trait PropertyLoader {
     private array $except = [];
@@ -38,18 +39,19 @@ trait PropertyLoader {
     }
 
     protected function loadObjects(Arrayable|array $data): array {
-        $objects = array_diff_key($this->objects(), array_flip($this->except));
+        $objects = array_diff_key($this->properties(), array_flip($this->except));
 
         $attributes = [];
         foreach ($objects as $propertyName => $object) {
             if (is_array($object)) {
-                list($className, $arguments) = $this->configure($object, $data);
+                list($className, $params, $arguments) = $this->configure($object, $data);
             } else {
                 $className = $object;
-                $arguments = [$data];
+                $params = $data;
+                $arguments = [];
             }
 
-            $attributes[$propertyName] = $this->build($className, $arguments);
+            $attributes[$propertyName] = $this->getInstance($className, $params, $arguments);
         }
 
         return $attributes;
@@ -57,49 +59,49 @@ trait PropertyLoader {
 
     private function configure(array $object, Arrayable|array $data): array {
         $objectClassName = null;
+        $params = [];
         $arguments = [];
 
         foreach ($object as $param) {
-            if (is_null($objectClassName) && $param instanceof ObjectClass) $objectClassName = $param;
-            if (is_null($objectClassName) && is_callable($param)) $objectClassName = $param;
-            if ($param instanceof Property) $arguments[] = $this->getProperty($data, $param->name);
-            if ($param instanceof Key) $arguments[] = $this->getKey($data, $param->name);
-            if ($param instanceof Argument) $arguments[] = $param->value;
+            match (true) {
+                is_null($objectClassName) && $param instanceof ObjectClass => $objectClassName = $param->name,
+                is_null($objectClassName) && is_callable($param) => $objectClassName = $param,
+                $param instanceof Property => $params[$param->name] = $data->{$param->name},
+                $param instanceof Key => $params[$param->name] = $data[$param->name],
+                $param instanceof Argument => $arguments[] = $param->value
+            };
         }
 
-        return [$objectClassName, $arguments];
-    }
-
-    private function getKey(array $data, string $keyName) {
-        return array_key_exists($keyName, $data) ? $data[$keyName] : null;
-    }
-
-    private function getProperty(object $data, string $propertyName) {
-        return property_exists($data, $propertyName) ? $data->$propertyName : null;
-    }
-
-    protected function build(array|string|callable $className, $data): mixed {
-        if (is_array($className)) {
-            return $this->arrayableObject(array_shift($className), $data);
-        } elseif (is_string($className)) {
-            return new $className($data);
-        } else {
-            return $this->getInstance($className, $data);
+        if (is_null($objectClassName)) {
+            throw new InvalidArgumentException('ObjectClass name is not setted');
         }
+
+        return [$objectClassName, $params, $arguments];
     }
 
     protected function arrayableObject($className, $data): array {
         $objects = [];
         foreach ($data as $datum) {
-            $objects[] = $this->build($className, $datum);
+            $objects[] = $this->getInstance($className, $datum);
         }
         return $objects;
     }
 
-    protected function getInstance(string $className, $data): mixed {
+    protected function getInstance(array|string|callable $className, array $params = [], array $arguments = []): mixed {
+        $data = [];
+
+        if (!empty($params)) {
+            $data[] = $params;
+        }
+
+        if (!empty($arguments)) {
+            $data = array_merge($data, $arguments);
+        }
+
         return match (true) {
-            is_callable($className) => call_user_func($className, $data),
-            method_exists($className, 'build') => call_user_func([$className, 'build'], $data),
+            is_array($className) => $this->arrayableObject(array_shift($className), ...$data),
+            is_callable($className) => call_user_func($className, ...$data),
+            method_exists($className, 'build') => call_user_func([$className, 'build'], ...$data),
             default => new $className(...$data)
         };
     }
