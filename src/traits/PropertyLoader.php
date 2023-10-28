@@ -43,21 +43,17 @@ trait PropertyLoader {
 
         $attributes = [];
         foreach ($objects as $propertyName => $object) {
-            if (is_array($object)) {
-                list($className, $params, $arguments) = $this->configure($object, $data);
-            } else {
-                $className = $object;
-                $params = $data;
-                $arguments = [];
-            }
-
-            $attributes[$propertyName] = $this->getInstance($className, $params, $arguments);
+            $attributes[$propertyName] = $this->getInstance(...$this->configure($object, $data));
         }
 
         return $attributes;
     }
 
-    private function configure(array $object, Arrayable|array $data): array {
+    private function configure(array|string $object, Arrayable|array $data): array {
+        if (is_string($object)) {
+            return [$object, $data, []];
+        }
+
         $objectClassName = null;
         $params = [];
         $arguments = [];
