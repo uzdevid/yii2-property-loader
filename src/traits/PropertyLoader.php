@@ -21,7 +21,7 @@ trait PropertyLoader {
             $attributes = $data->toArray();
         }
 
-        $this->loadAttributes(array_diff_key($attributes, $this->properties(), $this->except));
+        $this->loadAttributes(array_diff_key($attributes, $this->properties(), array_flip($this->except)));
 
         return $this->loadObjects($data);
     }
