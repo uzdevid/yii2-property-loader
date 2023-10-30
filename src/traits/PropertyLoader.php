@@ -51,20 +51,20 @@ trait PropertyLoader {
 
     private function configure(array|string $object, Arrayable|array $data): array {
         if (is_string($object)) {
-            return [$object, $data, []];
+            return [$object, $data];
         }
 
         $objectClassName = null;
-        $params = [];
         $arguments = [];
 
         foreach ($object as $param) {
             match (true) {
                 is_null($objectClassName) && $param instanceof ObjectClass => $objectClassName = $param->name,
                 is_null($objectClassName) && is_callable($param) => $objectClassName = $param,
-                $param instanceof Property => $params[$param->name] = $data->{$param->name},
-                $param instanceof Key => $params[$param->name] = $data[$param->name],
-                $param instanceof Argument => $arguments[] = $param->value
+                $param instanceof Property => $arguments[] = $data->{$param->name},
+                $param instanceof Key => $arguments[] = $data[$param->name],
+                $param instanceof Argument => $arguments[] = $param->value,
+                default => null,
             };
         }
 
@@ -72,7 +72,7 @@ trait PropertyLoader {
             throw new InvalidArgumentException('ObjectClass name is not setted');
         }
 
-        return [$objectClassName, $params, $arguments];
+        return [$objectClassName, $arguments];
     }
 
     protected function arrayableObject($className, $data): array {
@@ -83,22 +83,12 @@ trait PropertyLoader {
         return $objects;
     }
 
-    protected function getInstance(array|string|callable $className, array $params = [], array $arguments = []): mixed {
-        $data = [];
-
-        if (!empty($params)) {
-            $data[] = $params;
-        }
-
-        if (!empty($arguments)) {
-            $data = array_merge($data, $arguments);
-        }
-
+    protected function getInstance(array|string|callable $className, array $arguments = []): mixed {
         return match (true) {
-            is_array($className) => $this->arrayableObject(array_shift($className), ...$data),
-            is_callable($className) => call_user_func($className, ...$data),
-            method_exists($className, 'build') => call_user_func([$className, 'build'], ...$data),
-            default => new $className(...$data)
+            is_array($className) => $this->arrayableObject(array_shift($className), ...$arguments),
+            is_callable($className) => call_user_func($className, ...$arguments),
+            method_exists($className, 'build') => call_user_func([$className, 'build'], ...$arguments),
+            default => new $className(...$arguments)
         };
     }
 }
