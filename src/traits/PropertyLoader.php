@@ -5,9 +5,6 @@ namespace uzdevid\property\loader\traits;
 use ReflectionClass;
 use ReflectionProperty;
 use uzdevid\property\loader\types\Argument;
-use uzdevid\property\loader\types\Key;
-use uzdevid\property\loader\types\ObjectClass;
-use uzdevid\property\loader\types\Property;
 use yii\base\Arrayable;
 use yii\base\InvalidArgumentException;
 
@@ -54,25 +51,26 @@ trait PropertyLoader {
             return [$object, $data];
         }
 
-        $objectClassName = null;
-        $arguments = [];
-
-        foreach ($object as $param) {
-            match (true) {
-                is_null($objectClassName) && $param instanceof ObjectClass => $objectClassName = $param->name,
-                is_null($objectClassName) && is_callable($param) => $objectClassName = $param,
-                $param instanceof Property => $arguments[] = $data->{$param->name},
-                $param instanceof Key => $arguments[] = $data[$param->name],
-                $param instanceof Argument => $arguments[] = $param->value,
-                default => null,
-            };
-        }
-
-        if (is_null($objectClassName)) {
-            throw new InvalidArgumentException('ObjectClass name is not setted');
-        }
+        $objectClassName = array_shift($object);
+        $arguments = is_array($data) ? $this->getArgumentsFromArray($object, $data) : $this->getArgumentsFromObject($object, $data);
 
         return [$objectClassName, $arguments];
+    }
+
+    private function getArgumentsFromArray($object, $data): array {
+        $arguments = [];
+        foreach ($object as $param) {
+            $arguments[] = $param instanceof Argument ? $param->value : $data[$param];
+        }
+        return $arguments;
+    }
+
+    private function getArgumentsFromObject($object, $data): array {
+        $arguments = [];
+        foreach ($object as $param) {
+            $arguments[] = $param instanceof Argument ? $param->value : $data->{$param};
+        }
+        return $arguments;
     }
 
     protected function arrayableObject($className, $data): array {
@@ -85,7 +83,7 @@ trait PropertyLoader {
 
     protected function getInstance(array|string|callable $className, array $arguments = []): mixed {
         return match (true) {
-            is_array($className) => $this->arrayableObject(array_shift($className), ...$arguments),
+            is_array($className) => $this->arrayableObject(array_shift($className), $arguments),
             is_callable($className) => call_user_func($className, ...$arguments),
             method_exists($className, 'build') => call_user_func([$className, 'build'], ...$arguments),
             default => new $className(...$arguments)
