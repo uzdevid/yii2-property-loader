@@ -6,7 +6,6 @@ use ReflectionClass;
 use ReflectionProperty;
 use uzdevid\property\loader\types\Argument;
 use yii\base\Arrayable;
-use yii\base\InvalidArgumentException;
 
 trait PropertyLoader {
     private array $except = [];
@@ -76,6 +75,7 @@ trait PropertyLoader {
     protected function arrayableObject($className, $data): array {
         $objects = [];
         foreach ($data as $datum) {
+            if (empty($datum)) continue;
             $objects[] = $this->getInstance($className, $datum);
         }
         return $objects;
