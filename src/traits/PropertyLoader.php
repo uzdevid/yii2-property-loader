@@ -10,7 +10,7 @@ use yii\base\Arrayable;
 trait PropertyLoader {
     private array $except = [];
 
-    protected function load(Arrayable|array $data): array {
+    protected function loadProperties(Arrayable|array $data): array {
         $attributes = $data;
 
         if ($data instanceof Arrayable) {
