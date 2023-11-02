@@ -7,8 +7,20 @@ use uzdevid\property\loader\traits\PropertyLoader;
 class Model extends \yii\base\Model {
     use PropertyLoader;
 
-    public function __construct(Arrayable|array $data, string|null $formName = '', array $except = []) {
+    public function __construct(Arrayable|array $data, string|null $formName = null, array $except = []) {
         $this->except = $except;
-        $this->load($this->loadProperties($data), $formName);
+        $dataInForm = $this->getDataInForm($data, $formName);
+        $this->load($this->loadProperties($dataInForm), '');
+    }
+
+    protected function getDataInForm(array $data, string|null $formName = null) {
+        $scope = $formName === null ? $this->formName() : $formName;
+        if ($scope === '' && !empty($data)) {
+            return $data;
+        } elseif (isset($data[$scope])) {
+            return $data[$scope];
+        }
+
+        return [];
     }
 }
