@@ -87,14 +87,12 @@ trait PropertyLoader {
         $objects = [];
         foreach ($data as $datum) {
             if (empty($datum)) continue;
-            if (!ArrayHelper::isAssociative($datum)) {
-                $d = [];
-                foreach ($datum as $item) {
-                    $d[] = $this->getInstance($className, [$item]);
-                }
-                $objects = array_merge($d, $objects);
-            } else {
+            if (ArrayHelper::isAssociative($datum)) {
                 $objects[] = $this->getInstance($className, $datum);
+            } else {
+                $objects = array_merge($objects, array_map(function ($item) use ($className) {
+                    return $this->getInstance($className, [$item]);
+                }, $datum));
             }
         }
         return $objects;
