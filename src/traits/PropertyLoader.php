@@ -6,6 +6,7 @@ use ReflectionClass;
 use ReflectionProperty;
 use uzdevid\property\loader\types\Argument;
 use yii\base\Arrayable;
+use yii\helpers\ArrayHelper;
 
 trait PropertyLoader {
     private array $except = [];
@@ -49,7 +50,6 @@ trait PropertyLoader {
         if (is_string($object)) {
             return [$object, $data];
         }
-
         $objectClassName = array_shift($object);
         $arguments = is_array($data) ? $this->getArgumentsFromArray($object, $data) : $this->getArgumentsFromObject($object, $data);
 
@@ -72,11 +72,30 @@ trait PropertyLoader {
         return $arguments;
     }
 
+    protected function findAssoc(array $arrayArgument) {
+        if (ArrayHelper::isAssociative($arrayArgument)) {
+            return $arrayArgument;
+        }
+        $current = current($arrayArgument);
+        if ($current !== null && is_array($arrayArgument)) {
+            return $this->findAssoc($current);
+        }
+        return $current;
+    }
+
     protected function arrayableObject($className, $data): array {
         $objects = [];
         foreach ($data as $datum) {
             if (empty($datum)) continue;
-            $objects[] = $this->getInstance($className, $datum);
+            if (!ArrayHelper::isAssociative($datum)) {
+                $d = [];
+                foreach ($datum as $item) {
+                    $d[] = $this->getInstance($className, [$item]);
+                }
+                $objects = array_merge($d, $objects);
+            } else {
+                $objects[] = $this->getInstance($className, $datum);
+            }
         }
         return $objects;
     }
