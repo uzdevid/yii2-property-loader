@@ -111,11 +111,13 @@ trait PropertyLoader {
         if (ArrayHelper::isAssociative($arrayArgument)) {
             return $arrayArgument;
         }
+
         $current = current($arrayArgument);
-        if ($current !== null && is_array($arrayArgument)) {
+        if (!is_null($current)) {
             return $this->findAssoc($current);
         }
-        return $current;
+
+        return null;
     }
 
     protected function arrayableObject($className, $data): array {
@@ -136,7 +138,7 @@ trait PropertyLoader {
     protected function getInstance(array|string|callable $className, array $arguments = []): mixed {
         return match (true) {
             is_array($className) => $this->arrayableObject(array_shift($className), $arguments),
-            is_callable($className) => call_user_func($className, ...$arguments),
+            is_callable($className) => $className(...$arguments),
             method_exists($className, 'build') => call_user_func([$className, 'build'], ...$arguments),
             default => new $className(...$arguments)
         };
