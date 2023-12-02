@@ -6,10 +6,13 @@ use ReflectionClass;
 use ReflectionProperty;
 use uzdevid\property\loader\types\Argument;
 use yii\base\Arrayable;
+use yii\base\UnknownPropertyException;
 use yii\helpers\ArrayHelper;
 
 trait PropertyLoader {
     private array $except = [];
+
+    protected bool $throwUndefinedPropertyException = true;
 
     protected function loadProperties(Arrayable|array $data): array {
         $attributes = $data;
@@ -56,18 +59,50 @@ trait PropertyLoader {
         return [$objectClassName, $arguments];
     }
 
+    /**
+     * @throws UnknownPropertyException
+     */
     private function getArgumentsFromArray($object, $data): array {
         $arguments = [];
         foreach ($object as $param) {
-            $arguments[] = $param instanceof Argument ? $param->value : $data[$param];
+            if ($param instanceof Argument) {
+                $arguments[] = $param->value;
+                continue;
+            }
+
+            if (!isset($data[$param])) {
+                if ($this->throwUndefinedPropertyException) {
+                    throw new UnknownPropertyException("Key {$param} not found");
+                }
+
+                continue;
+            }
+
+            $arguments[] = $data[$param];
         }
         return $arguments;
     }
 
+    /**
+     * @throws UnknownPropertyException
+     */
     private function getArgumentsFromObject($object, $data): array {
         $arguments = [];
         foreach ($object as $param) {
-            $arguments[] = $param instanceof Argument ? $param->value : $data->{$param};
+            if ($param instanceof Argument) {
+                $arguments[] = $param->value;
+                continue;
+            }
+
+            if (!isset($data->{$param})) {
+                if ($this->throwUndefinedPropertyException) {
+                    throw new UnknownPropertyException("Property {$param} not found");
+                }
+
+                continue;
+            }
+
+            $arguments[] = $data->{$param};
         }
         return $arguments;
     }
