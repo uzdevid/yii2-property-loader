@@ -20,6 +20,4 @@ abstract class Entity extends BaseObject implements Arrayable {
 
         parent::__construct($this->loadProperties($data));
     }
-
-    abstract public static function name(): string;
 }
