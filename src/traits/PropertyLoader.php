@@ -38,6 +38,9 @@ trait PropertyLoader {
         parent::__construct($filteredConfig);
     }
 
+    /**
+     * @throws UnknownPropertyException
+     */
     protected function loadObjects(Arrayable|array $data): array {
         $objects = array_diff_key($this->properties(), array_flip($this->except));
 
@@ -49,6 +52,9 @@ trait PropertyLoader {
         return $attributes;
     }
 
+    /**
+     * @throws UnknownPropertyException
+     */
     private function configure(array|string $object, Arrayable|array $data): array {
         if (is_string($object)) {
             return [$object, $data];
@@ -70,15 +76,14 @@ trait PropertyLoader {
                 continue;
             }
 
-            if (!isset($data[$param])) {
-                if ($this->throwUndefinedPropertyException) {
-                    throw new UnknownPropertyException("Key {$param} not found");
-                }
-
+            if (isset($data[$param])) {
+                $arguments[] = $data[$param];
                 continue;
             }
 
-            $arguments[] = $data[$param];
+            if ($this->throwUndefinedPropertyException) {
+                throw new UnknownPropertyException("Key {$param} not found");
+            }
         }
         return $arguments;
     }
@@ -94,16 +99,21 @@ trait PropertyLoader {
                 continue;
             }
 
-            if (!isset($data->{$param})) {
-                if ($this->throwUndefinedPropertyException) {
-                    throw new UnknownPropertyException("Property {$param} not found");
-                }
-
+            if (property_exists($data, $param)) {
+                $arguments[] = $data->{$param};
                 continue;
             }
 
-            $arguments[] = $data->{$param};
+            if (str_ends_with($param, '()') && method_exists($data, str_replace('()', '', $param))) {
+                $arguments[] = $data->{$param}();
+                continue;
+            }
+
+            if ($this->throwUndefinedPropertyException) {
+                throw new UnknownPropertyException("Property/Method with name '{$param}' not found");
+            }
         }
+
         return $arguments;
     }
 
