@@ -109,6 +109,12 @@ trait PropertyLoader {
                 continue;
             }
 
+            $getterName = 'get' . ucfirst($param);
+            if (method_exists($data, $getterName)) {
+                $arguments[] = $data->{$getterName}();
+                continue;
+            }
+
             if ($this->throwUndefinedPropertyException) {
                 throw new UnknownPropertyException("Property/Method with name '{$param}' not found");
             }
