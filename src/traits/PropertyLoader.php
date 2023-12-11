@@ -99,7 +99,7 @@ trait PropertyLoader {
                 continue;
             }
 
-            if (property_exists($data, $param)) {
+            if (isset($data->{$param})) {
                 $arguments[] = $data->{$param};
                 continue;
             }
