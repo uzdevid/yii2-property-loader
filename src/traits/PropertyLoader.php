@@ -76,7 +76,7 @@ trait PropertyLoader {
                 continue;
             }
 
-            if (isset($data[$param])) {
+            if (array_key_exists($param, $data)) {
                 $arguments[] = $data[$param];
                 continue;
             }
