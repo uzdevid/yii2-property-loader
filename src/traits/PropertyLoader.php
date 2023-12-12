@@ -99,19 +99,19 @@ trait PropertyLoader {
                 continue;
             }
 
-            if (isset($data->{$param})) {
-                $arguments[] = $data->{$param};
+            if (isset($data->$param)) {
+                $arguments[] = $data->$param;
                 continue;
             }
 
             if (str_ends_with($param, '()') && method_exists($data, str_replace('()', '', $param))) {
-                $arguments[] = $data->{$param}();
+                $arguments[] = $data->$param();
                 continue;
             }
 
             $getterName = 'get' . ucfirst($param);
             if (method_exists($data, $getterName)) {
-                $arguments[] = $data->{$getterName}();
+                $arguments[] = $data->$getterName();
                 continue;
             }
 
