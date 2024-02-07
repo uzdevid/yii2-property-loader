@@ -6,14 +6,16 @@ use ReflectionClass;
 use ReflectionProperty;
 use uzdevid\property\loader\types\Argument;
 use yii\base\Arrayable;
-use yii\base\UnknownPropertyException;
 use yii\helpers\ArrayHelper;
 
 trait PropertyLoader {
     private array $except = [];
 
-    protected bool $throwUndefinedPropertyException = true;
-
+    /**
+     * @param Arrayable|array $data
+     *
+     * @return array
+     */
     protected function loadProperties(Arrayable|array $data): array {
         $attributes = $data;
 
@@ -26,10 +28,18 @@ trait PropertyLoader {
         return $this->loadObjects($data);
     }
 
+    /**
+     * @return array
+     */
     protected function properties(): array {
         return [];
     }
 
+    /**
+     * @param array $data
+     *
+     * @return void
+     */
     protected function loadAttributes(array $data): void {
         $reflectionClass = new ReflectionClass($this);
         $propertyNames = array_column($reflectionClass->getProperties(ReflectionProperty::IS_PUBLIC), 'name');
@@ -39,7 +49,9 @@ trait PropertyLoader {
     }
 
     /**
-     * @throws UnknownPropertyException
+     * @param Arrayable|array $data
+     *
+     * @return array
      */
     protected function loadObjects(Arrayable|array $data): array {
         $objects = array_diff_key($this->properties(), array_flip($this->except));
@@ -53,7 +65,10 @@ trait PropertyLoader {
     }
 
     /**
-     * @throws UnknownPropertyException
+     * @param array|string $object
+     * @param Arrayable|array $data
+     *
+     * @return array
      */
     private function configure(array|string $object, Arrayable|array $data): array {
         if (is_string($object)) {
@@ -66,91 +81,67 @@ trait PropertyLoader {
     }
 
     /**
-     * @throws UnknownPropertyException
+     * @param $object
+     * @param $data
+     *
+     * @return array
      */
     private function getArgumentsFromArray($object, $data): array {
         $arguments = [];
         foreach ($object as $param) {
-            if ($param instanceof Argument) {
-                $arguments[] = $param->value;
-                continue;
-            }
-
-            if (array_key_exists($param, $data)) {
-                $arguments[] = $data[$param];
-                continue;
-            }
-
-            if ($this->throwUndefinedPropertyException) {
-                throw new UnknownPropertyException("Key {$param} not found");
-            }
+            $arguments[] = $param instanceof Argument ? $param->value : $data[$param];
         }
         return $arguments;
     }
 
     /**
-     * @throws UnknownPropertyException
+     * @param $object
+     * @param $data
+     *
+     * @return array
      */
     private function getArgumentsFromObject($object, $data): array {
         $arguments = [];
+
         foreach ($object as $param) {
-            if ($param instanceof Argument) {
-                $arguments[] = $param->value;
-                continue;
-            }
-
-            if (isset($data->$param)) {
-                $arguments[] = $data->$param;
-                continue;
-            }
-
-            if (str_ends_with($param, '()') && method_exists($data, str_replace('()', '', $param))) {
-                $arguments[] = $data->$param();
-                continue;
-            }
-
-            $getterName = 'get' . ucfirst($param);
-            if (method_exists($data, $getterName)) {
-                $arguments[] = $data->$getterName();
-                continue;
-            }
-
-            if ($this->throwUndefinedPropertyException) {
-                throw new UnknownPropertyException("Property/Method with name '{$param}' not found");
-            }
+            $arguments[] = $param instanceof Argument ? $param->value : $data->{$param};
         }
 
         return $arguments;
     }
 
-    protected function findAssoc(array $arrayArgument) {
-        if (ArrayHelper::isAssociative($arrayArgument)) {
-            return $arrayArgument;
-        }
-
-        $current = current($arrayArgument);
-        if (!is_null($current)) {
-            return $this->findAssoc($current);
-        }
-
-        return null;
-    }
-
+    /**
+     * @param $className
+     * @param $data
+     *
+     * @return array
+     */
     protected function arrayableObject($className, $data): array {
-        $objects = [];
-        foreach ($data as $datum) {
-            if (empty($datum)) continue;
-            if (ArrayHelper::isAssociative($datum)) {
-                $objects[] = $this->getInstance($className, $datum);
-            } else {
-                $objects = array_merge($objects, array_map(function ($item) use ($className) {
-                    return $this->getInstance($className, [$item]);
-                }, $datum));
-            }
-        }
-        return $objects;
+        return array_filter(array_map(function ($datum) use ($className) {
+            return $this->processDatum($className, $datum);
+        }, $data));
     }
 
+    /**
+     * @param $className
+     * @param $datum
+     *
+     * @return array|mixed
+     */
+    private function processDatum($className, $datum): mixed {
+        if (ArrayHelper::isAssociative($datum)) {
+            return $this->getInstance($className, $datum);
+        }
+
+        return array_map(fn($item) => $this->getInstance($className, [$item]), $datum);
+    }
+
+    /**
+     * @param array|string|callable $className
+     * @param array $arguments
+     *
+     * @return mixed
+     */
     protected function getInstance(array|string|callable $className, array $arguments = []): mixed {
         return match (true) {
             is_array($className) => $this->arrayableObject(array_shift($className), $arguments),

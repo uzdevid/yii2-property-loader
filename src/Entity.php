@@ -11,6 +11,10 @@ abstract class Entity extends BaseObject implements Arrayable {
     use ArrayableTrait;
     use PropertyLoader;
 
+    /**
+     * @param Arrayable|array|null $data
+     * @param array $except
+     */
     public function __construct(Arrayable|array|null $data = null, array $except = []) {
         $this->except = $except;
 
