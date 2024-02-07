@@ -9,7 +9,7 @@ use yii\base\Arrayable;
 use yii\helpers\ArrayHelper;
 
 trait PropertyLoader {
-    protected array $except = [];
+    private array $except = [];
 
     /**
      * @param ...$propertyName
